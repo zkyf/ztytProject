@@ -11,6 +11,7 @@
 #include <fstream>
 #include <vector>
 #include <GL/glew.h>
+#include <GL/freeglut.h>
 #include <gl/glut.h>
 #include <math.h>
 #include <Windows.h>
@@ -21,17 +22,33 @@
 
 using namespace std;
 
+typedef enum
+{
+	UP,
+	DOWN,
+	FOREWARD,
+	BACKWARD,
+	LEFT,
+	RIGHT
+} Direction;
+
 static GLint mousex = 0, mousey = 0;
 GLboolean  mouserdown = GL_FALSE;
 GLboolean  mouseldown = GL_FALSE;
 GLboolean  mousemdown = GL_FALSE;
 
+/// Callback Functions
 void display();
 void reshape(int width, int height);
 void keyboard(unsigned char key, int x, int y);
 void mouse(GLint button, GLint action, GLint x, GLint y);
 void motion(int x, int y);
+void wheel(int button, int dir, int x, int y);
 
+/// Control Functions
+void moveeye(Direction dir, double step);
+
+///OpenGL Related Functions
 void loadobj(char* filename);
 void generateEye(GLfloat eye[], GLfloat lookat[3]);
 void generateEye(GLfloat eye[], GLfloat lookat[3], double step);
@@ -43,7 +60,7 @@ void idle();
 void debug_print_eye();
 GLuint processpick(GLint n, GLuint pb[]);
 void genlist();
-void getFPS();
+void getFPS();;
 
 class ljxObject
 {
@@ -93,7 +110,7 @@ int main(int argc, char *argv[])
 {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-	glutInitWindowSize(192, 108);
+	glutInitWindowSize(640, 480);
 	glutCreateWindow("[¹þ¹þ¹þ¹þ¹þ¹þ£¡]");
 
 	if (argc < 2)
@@ -103,13 +120,13 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	loadobj(argv[1]);
-
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 	glutKeyboardFunc(keyboard);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
 	glutIdleFunc(idle);
+	glutMouseWheelFunc(wheel);
 
 	if (glewInit() != GLEW_OK)
 	{
@@ -122,7 +139,7 @@ int main(int argc, char *argv[])
 
 	if (fullscreen)
 	{
-		glutFullScreen();
+		//glutFullScreen();
 	}
 	glutMainLoop();
 	return 0;
@@ -300,28 +317,28 @@ void keyboard(unsigned char key, int x, int y)
 		case 27:
 			exit(0);
 		case 'a':
-								eye[0] += step * sin(viewangle[0]);
-								eye[2] -= step * cos(viewangle[0]);
+								//left
+			moveeye(LEFT, step);
 								break;
 		case 'd': 
-								eye[0] -= step * sin(viewangle[0]);
-								eye[2] += step * cos(viewangle[0]);								
+								//right		
+			moveeye(RIGHT, step);
 								break;
 		case 'w': 
-								eye[0] += step * sin(viewangle[1]) * cos(viewangle[0]);
-								eye[1] += step * cos(viewangle[1]);
-								eye[2] += step * sin(viewangle[1]) * sin(viewangle[0]);
+								//foreward
+			moveeye(FOREWARD, step);
 								break;
 		case 's': 
-								eye[0] -= step * sin(viewangle[1]) * cos(viewangle[0]);
-								eye[1] -= step * cos(viewangle[1]);
-								eye[2] -= step * sin(viewangle[1]) * sin(viewangle[0]);
+								//backward
+			moveeye(BACKWARD, step);
 								break;
 		case 'z': 
-								eye[1] += step * sin(viewangle[1]);
+								//up
+			moveeye(UP, step);
 								break;
 		case 'c':
-			          eye[1] -= step * sin(viewangle[1]);
+			          //down
+			moveeye(DOWN, step);
 								break;
 		case 'v':
 			if (chosen != -1)
@@ -435,6 +452,15 @@ void keyboard(unsigned char key, int x, int y)
 
 void mouse(GLint button, GLint action, GLint x, GLint y)
 {
+	cout << "button: " << button << endl;
+	if (button == 3)
+	{
+		wheel(button, 120, x, y);
+	}
+	if (button == 4)
+	{
+		wheel(button, -120, x, y);
+	}
 	if (action == GLUT_DOWN){
 		if (button == GLUT_RIGHT_BUTTON) mouserdown = GL_TRUE;
 		if (button == GLUT_LEFT_BUTTON) mouseldown = GL_TRUE;
@@ -468,7 +494,7 @@ void mouse(GLint button, GLint action, GLint x, GLint y)
 		{
 			glOrtho(-3, 3, -3, 3, -100, 100);
 		}
-		gluPickMatrix(GLdouble(x), GLdouble(vp[3] - y), 0.1, 0.1, vp);
+		gluPickMatrix(GLdouble(x), GLdouble(vp[3] - y), 3, 3, vp);
 		glMatrixMode(GL_MODELVIEW);							// Select The Modelview Matrix
 		draw(GL_SELECT);
 		glMatrixMode(GL_PROJECTION);
@@ -787,4 +813,43 @@ void getFPS()
 	glPopMatrix();                // ÖØÖÃÎªÔ­±£´æ¾ØÕó
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LIGHTING);
+}
+
+void wheel(int button, int dir, int x, int y)
+{
+	double step;
+	const double ratio = 0.05;
+	step = ratio*dir;
+	moveeye(FOREWARD, step);
+}
+
+void moveeye(Direction dir, double step)
+{
+	switch (dir)
+	{
+		case UP:
+			eye[1] += step * sin(viewangle[1]);
+			break;
+		case DOWN:
+			eye[1] -= step * sin(viewangle[1]);
+			break;
+		case LEFT:
+			eye[0] += step * sin(viewangle[0]);
+			eye[2] -= step * cos(viewangle[0]);
+			break;
+		case RIGHT:
+			eye[0] -= step * sin(viewangle[0]);
+			eye[2] += step * cos(viewangle[0]);
+			break;
+		case FOREWARD:
+			eye[0] += step * sin(viewangle[1]) * cos(viewangle[0]);
+			eye[1] += step * cos(viewangle[1]);
+			eye[2] += step * sin(viewangle[1]) * sin(viewangle[0]);
+			break;
+		case BACKWARD:
+			eye[0] -= step * sin(viewangle[1]) * cos(viewangle[0]);
+			eye[1] -= step * cos(viewangle[1]);
+			eye[2] -= step * sin(viewangle[1]) * sin(viewangle[0]);
+			break;
+	}
 }
