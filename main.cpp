@@ -11,7 +11,6 @@
 #include <fstream>
 #include <vector>
 #include <GL/glew.h>
-#include <GL/freeglut.h>
 #include <gl/glut.h>
 #include <math.h>
 #include <Windows.h>
@@ -31,6 +30,7 @@ typedef enum
 	LEFT,
 	RIGHT
 } Direction;
+typedef GLfloat GLpoint3f[3];
 
 static GLint mousex = 0, mousey = 0;
 GLboolean  mouserdown = GL_FALSE;
@@ -43,6 +43,7 @@ void reshape(int width, int height);
 void keyboard(unsigned char key, int x, int y);
 void mouse(GLint button, GLint action, GLint x, GLint y);
 void motion(int x, int y);
+void passivemotion(int x, int y);
 void wheel(int button, int dir, int x, int y);
 
 /// Control Functions
@@ -60,30 +61,8 @@ void idle();
 void debug_print_eye();
 GLuint processpick(GLint n, GLuint pb[]);
 void genlist();
-void getFPS();;
-
-class ljxObject
-{
-	public:
-	string obj;
-	string tga;
-	GLMmodel model;
-	bool havetext;
-	bool chosen;
-	double x, y, z;
-	double angle;
-	double sx;
-	double sy;
-	double sz;
-	double osx, osy, osz;
-	GLint lidwithtext;
-	GLint lidwithouttext;
-	GLMtexture texture;
-	ljxObject() : havetext(false), x(0), y(0), z(0), angle(0), chosen(false) {}
-	~ljxObject() {}
-};
-
-typedef vector<ljxObject> ObjectList;
+void getFPS();
+void processColor(GLMmodel *object, double sx);
 
 const double dan = 1;
 
@@ -93,25 +72,33 @@ bool model = true;
 bool ro = false;
 bool follow = true;
 bool withtext = true;
+bool withlimit = false;
 bool showlightpos = false;
 bool fullscreen = true;
+bool mode = false;
+bool withscene = false;
 int objn = 0;
 int chosen = -1;
+double step = 0.1;
+double nx, px, ny, py, nz, pz; // limit of the position of the camera
 GLint lid;
 HWND hWnd;
 HINSTANCE hInstance;
-GLfloat eye[3] = { 0.0, 0.0, 8 };
+GLfloat eye[3] = { 0.0, 0.0, 0 };
 GLfloat viewangle[2] = { -M_PI / 2, M_PI / 2 };
 GLfloat light0col[3] = { 1.0, 1.0, 1.0 };
-GLfloat light0pos[4] = { 10.0, 10.0, 10.0, 1.0 };
+GLfloat light0pos[4] = { 0.0, 0.0, 0.0, 1.0 };
 GLuint pb[PBSIZE];
+GLpoint3f userlightlist[10];
+GLuint userlighttype[10];
+int userlightcount = 0;
 
 int main(int argc, char *argv[])
 {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 	glutInitWindowSize(640, 480);
-	glutCreateWindow("[¹þ¹þ¹þ¹þ¹þ¹þ£¡]");
+	glutCreateWindow("×¨ÌâÑÐÌÖ");
 
 	if (argc < 2)
 	{
@@ -125,8 +112,10 @@ int main(int argc, char *argv[])
 	glutKeyboardFunc(keyboard);
 	glutMouseFunc(mouse);
 	glutMotionFunc(motion);
+	glutPassiveMotionFunc(passivemotion);
 	glutIdleFunc(idle);
-	glutMouseWheelFunc(wheel);
+	
+
 
 	if (glewInit() != GLEW_OK)
 	{
@@ -139,7 +128,7 @@ int main(int argc, char *argv[])
 
 	if (fullscreen)
 	{
-		//glutFullScreen();
+		glutFullScreen();
 	}
 	glutMainLoop();
 	return 0;
@@ -150,28 +139,49 @@ void loadobj(char* filename)
 	fstream config(filename, ios::in);
 	if (!config)
 	{
-		printf("Config file not exist!\n");
-		system("pause");
-		exit(4);
+		config.open("scene.config", ios::in);
+		if (config.fail())
+		{
+			printf("Config file not exist!\n");
+			system("pause");
+			exit(4);
+		}
 	}
+
+	int max;
+	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max);
+	cout << "The max number of textures:¡¡" << max << endl;
 
 	string command;
 	string obj;
 	string tga;
 	double x = 0, y = 0, z = 0;
 	double sx = 1, sy = 1, sz = 1;
-
+	double ax = 0, ay = 0, az = 0;
+	double rotate = 0;
+	bool nonnormal = false;
+	bool getscene = false;
+	bool lineartext = false;
 	while (true)
 	{
 		config >> command;
+		if (command[0] == '#')
+		{
+			getline(config, command);
+			continue;
+		}
 		if (config.eof()) break;
 		if (strcmpi(command.c_str(), "OBJECT") == 0)
 		{
 			objn++;
+			nonnormal = false;
+			getscene = false;
+			lineartext = false;
 			obj = "";
 			tga = "";
 			x = 0; y = 0; z = 0;
 			sx = 1; sy = 1; sz = 1;
+			ax = 0; ay = 0; az = 0;
 			while (true)
 			{
 				config >> command;
@@ -204,7 +214,29 @@ void loadobj(char* filename)
 				else if (strcmpi(command.c_str(), "SCALE") == 0)
 				{
 					config >> sx >> sy >> sz;
-					if (config.eof()) break;
+				}
+				else if (strcmpi(command.c_str(), "NONNORMAL") == 0)
+				{
+					nonnormal == true;
+				}
+				else if (strcmpi(command.c_str(), "SCENE") == 0)
+				{
+					if (withscene)
+					{
+						printf("Redundant scene specified!\n");
+						break;
+					}
+					withscene = true;
+					getscene = true;
+				}
+				else if (strcmpi(command.c_str(), "LINEARTEXT") == 0)
+				{
+					lineartext = true;
+				}
+				else if (strcmpi(command.c_str(), "ROTATE") == 0)
+				{
+					printf("Rotate get\n");
+					config >> rotate >> ax >> ay >> az;
 				}
 				else
 				{
@@ -225,6 +257,9 @@ void loadobj(char* filename)
 			newobj.tga = tga;
 			newobj.sx = sx; newobj.sy = sy; newobj.sz = sz;
 			newobj.osx = sx; newobj.osy = sy; newobj.osz = sz;
+			newobj.ax = ax; newobj.ay = ay; newobj.az = az;
+			newobj.rotate = rotate;
+			newobj.selectable = !getscene;
 			GLMmodel *boat;
 			boat = glmReadOBJ(obj.c_str());
 			if (!boat)
@@ -235,7 +270,6 @@ void loadobj(char* filename)
 			}
 			else
 			{
-				newobj.model = *boat;
 				printf("Obj read succeeded for %s\n", obj.c_str());
 			}
 			if (tga != "")
@@ -252,11 +286,68 @@ void loadobj(char* filename)
 					printf("TGA read succeeded for %s\n", tga.c_str());
 				}
 			}
-			glmUnitize(&newobj.model);
-			glmFacetNormals(&newobj.model);
-			glmVertexNormals(&newobj.model, 90.0);
+			glmUnitize(boat);
+			if (getscene)
+			{
+				printf("Scene detected\n");
+				glmGetBox(boat, nx, px, ny, py, nz, pz);
+				nx *= sx * 0.9; ny *= sy * 0.9; nz *= sz * 0.9;
+				px *= sx * 0.9; py *= sy * 0.9; pz *= sz * 0.9;
+			}
+			if (!nonnormal)
+			{
+				glmFacetNormals(boat);
+				glmVertexNormals(boat, 90.0);
+			}
+
+			if(lineartext) glmLinearTexture(boat);
+			processColor(boat, sx);
+			newobj.lidwithouttext = glmList(boat, GLM_MATERIAL | GLM_SMOOTH);
+			newobj.lidwithtext = glmList(boat, GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
+			if (newobj.lidwithouttext == 0 || newobj.lidwithtext == 0)
+			{
+				printf("Failed to create display list for %s\n", obj.c_str());
+			}
+
 			objs.push_back(newobj);
 			printf("Newobject pushed\n");
+			glmDelete(boat);
+		}
+		else if (strcmpi(command.c_str(), "STEP") == 0)
+		{
+			if (config.eof()) break;
+			config >> step;
+			printf("step changed to %5.5lf\n", step);
+			if (config.eof()) break;
+		}
+		else if (strcmpi(command.c_str(), "LIGHT") == 0)
+		{
+			GLpoint3f newlight;
+			string type;
+			if (config.eof()) break;
+			config >> newlight[0] >> newlight[1] >> newlight[2] >> type;
+			if (userlightcount >= 8)
+			{
+				printf("Warning: the scene can only include at most 8 lights. This light will be ignored\n");
+				continue;
+			}
+			userlighttype[userlightcount] = GL_AMBIENT;
+			if (strcmpi(type.c_str(), "A") == 0) userlighttype[userlightcount] = GL_AMBIENT;
+			else if (strcmpi(type.c_str(), "D") == 0) userlighttype[userlightcount] = GL_DIFFUSE;
+			else if (strcmpi(type.c_str(), "AD") == 0) userlighttype[userlightcount] = GL_AMBIENT_AND_DIFFUSE;
+			else printf("Unknown light type %s\n", type.c_str());
+			userlightlist[userlightcount][0] = newlight[0];
+			userlightlist[userlightcount][1] = newlight[1];
+			userlightlist[userlightcount][2] = newlight[2];
+			printf("Light No. %d specified at (%5.5lf, %5.5lf, %5.5lf)\n",
+						 userlightcount, userlightlist[userlightcount][0], userlightlist[userlightcount][1],
+						 userlightlist[userlightcount][2]);
+			userlightcount++;
+		}
+		else if (strcmpi(command.c_str(), "LIGHTCOL") == 0)
+		{
+			config >> light0col[0] >> light0col[1] >> light0col[2];
+			printf("Light color set to (%5.5lf, %5.5lf, %5.5lf)\n", light0col[0], light0col[1], light0col[2]);
 		}
 		else
 		{
@@ -288,6 +379,7 @@ void display()
 	draw(GL_RENDER);
 	drawCross();
 	getFPS();
+	//drawscene();
 	glutSwapBuffers();
 	
 	Sleep(1000 / 60);
@@ -310,7 +402,6 @@ void reshape(int width, int height)
 void keyboard(unsigned char key, int x, int y)
 {
 	double const dc = 0.01;
-	const double step = 0.05;
 	const double dangle = M_PI / 24;
 	switch (key)
 	{
@@ -345,11 +436,9 @@ void keyboard(unsigned char key, int x, int y)
 			{
 				ljxObject newobj;
 				newobj = objs[chosen];
-				GLfloat pos[3];
-				generateEye(eye, pos);
-				newobj.x = pos[0];
-				newobj.y = pos[1];
-				newobj.z = pos[2];
+				newobj.x = eye[0];
+				newobj.y = eye[1];
+				newobj.z = eye[2];
 				objs[chosen].chosen = false;
 				newobj.chosen = false;
 				chosen = -1;
@@ -369,7 +458,7 @@ void keyboard(unsigned char key, int x, int y)
 		case 'r':
 			eye[0] = 0;
 			eye[1] = 0;
-			eye[2] = 8;
+			eye[2] = 0;
 			viewangle[0] = -M_PI / 2;
 			viewangle[1] = M_PI / 2;
 			break;
@@ -388,11 +477,9 @@ void keyboard(unsigned char key, int x, int y)
 		case 'x':
 			if (chosen != -1)
 			{
-				GLfloat pos[3];
-				generateEye(eye, pos);
-				objs[chosen].x = pos[0];
-				objs[chosen].y = pos[1];
-				objs[chosen].z = pos[2];
+				objs[chosen].x = eye[0];
+				objs[chosen].y = eye[1];
+				objs[chosen].z = eye[2];
 			}
 			break;
 		case '1':
@@ -416,17 +503,17 @@ void keyboard(unsigned char key, int x, int y)
 		case '[':
 			if (chosen != -1)
 			{
-				if (objs[chosen].sx > 0) objs[chosen].sx -= 0.05;
-				if (objs[chosen].sy > 0) objs[chosen].sy -= 0.05;
-				if (objs[chosen].sz > 0) objs[chosen].sz -= 0.05;
+				if (objs[chosen].sx > 0) objs[chosen].sx -= step;
+				if (objs[chosen].sy > 0) objs[chosen].sy -= step;
+				if (objs[chosen].sz > 0) objs[chosen].sz -= step;
 			}
 			break;
 		case ']':
 			if (chosen != -1)
 			{
-				objs[chosen].sx += 0.05;
-				objs[chosen].sy += 0.05;
-				objs[chosen].sz += 0.05;
+				objs[chosen].sx += step;
+				objs[chosen].sy += step;
+				objs[chosen].sz += step;
 			}
 			break;
 		case 'o':
@@ -446,6 +533,9 @@ void keyboard(unsigned char key, int x, int y)
 			else
 			{
 			}
+			break;
+		case 'y':
+			mode = !mode;
 			break;
 	}
 }
@@ -485,6 +575,8 @@ void mouse(GLint button, GLint action, GLint x, GLint y)
 
 		glPushMatrix();
 		glLoadIdentity();
+
+		gluPickMatrix(GLdouble(x), GLdouble(vp[3] - y), 0.5, 0.5, vp);
 		double whRatio = (GLfloat)gwidth / (GLfloat)gheight;
 		if (model)
 		{
@@ -492,9 +584,8 @@ void mouse(GLint button, GLint action, GLint x, GLint y)
 		}
 		else
 		{
-			glOrtho(-3, 3, -3, 3, -100, 100);
+			glOrtho(nx, px, ny, py, nz, pz);
 		}
-		gluPickMatrix(GLdouble(x), GLdouble(vp[3] - y), 3, 3, vp);
 		glMatrixMode(GL_MODELVIEW);							// Select The Modelview Matrix
 		draw(GL_SELECT);
 		glMatrixMode(GL_PROJECTION);
@@ -520,8 +611,13 @@ void mouse(GLint button, GLint action, GLint x, GLint y)
 			{
 				j->chosen = false;
 			}
-			objs[get - 1].chosen = !state;
-			chosen = get - 1;
+			
+			if (chosen == -1)
+			{
+				chosen = get - 1;
+				objs[get - 1].chosen = true;
+			}
+			else chosen = -1;
 		}
 		else
 		{
@@ -539,20 +635,13 @@ void mouse(GLint button, GLint action, GLint x, GLint y)
 
 void motion(int x, int y)
 {
+	if (mode) return;
 	GLint xx, yy;
-	xx = x - mousex;
-	yy = y - mousey;
+	xx = x - mousex; xx = -xx;
+	yy = y - mousey; yy = -yy;
 	//cout << "xx: " << xx << ", yy" << yy << endl;
 	if (mouseldown == GL_TRUE){
 		const double da = M_PI / 2;
-		//glutSetCursor(GLUT_CURSOR_NONE);
-		INPUT input;
-		ZeroMemory(&input, sizeof(input));
-		input.type = INPUT_MOUSE;
-		input.mi.dx = 65535 / 2;
-		input.mi.dy = 65535 / 2;
-		input.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
-		//SendInput(1, &input, sizeof(input));
 		double da0 = da * (1.0 * xx / GetSystemMetrics(SM_CXSCREEN));
 		double da1 = da * (1.0 * yy / GetSystemMetrics(SM_CYSCREEN));
 		viewangle[0] += da0;
@@ -570,19 +659,42 @@ void motion(int x, int y)
 			viewangle[0] += 2 * M_PI;
 		}
 	}
-	if (mouserdown == GL_TRUE){
-		eye[0] += xx * 0.01 * sin(viewangle[0]);
-		eye[2] -= xx * 0.01 * cos(viewangle[0]);
-		eye[1] += yy * 0.01 * sin(viewangle[1]);
+	if (mouserdown == GL_TRUE)
+	{
+		eye[0] += xx * step * 0.1 * sin(viewangle[0]);
+		eye[2] -= xx * step * 0.1 * cos(viewangle[0]);
+		eye[1] += yy * step * 0.1 * sin(viewangle[1]);
+		if (withscene)
+		{
+			if (eye[0] <= nx || eye[0] >= px ||
+					eye[1] <= ny || eye[1] >= py ||
+					eye[2] <= nz || eye[2] >= pz)
+			{
+				eye[0] -= xx * step * 0.1 * sin(viewangle[0]);
+				eye[2] += xx * step * 0.1 * cos(viewangle[0]);
+				eye[1] -= yy * step * 0.1 * sin(viewangle[1]);
+			}
+		}
 	}
-	if (mousemdown == GL_TRUE){
-		eye[0] -= xx * 0.15 * sin(viewangle[1]) * cos(viewangle[0]);
-		eye[1] -= xx * 0.15 * cos(viewangle[1]);
-		eye[2] -= xx * 0.15 * sin(viewangle[1]) * sin(viewangle[0]);
+	if (mousemdown == GL_TRUE)
+	{
+		eye[0] -= xx * step * 0.1 * sin(viewangle[1]) * cos(viewangle[0]);
+		eye[1] -= xx * step * 0.1 * cos(viewangle[1]);
+		eye[2] -= xx * step * 0.1 * sin(viewangle[1]) * sin(viewangle[0]);
+		if (withscene)
+		{
+			if (eye[0] <= nx || eye[0] >= px ||
+					eye[1] <= ny || eye[1] >= py ||
+					eye[2] <= nz || eye[2] >= pz)
+			{
+				eye[0] += xx * step * 0.1 * sin(viewangle[1]) * cos(viewangle[0]);
+				eye[1] += xx * step * 0.1 * cos(viewangle[1]);
+				eye[2] += xx * step * 0.1 * sin(viewangle[1]) * sin(viewangle[0]);
+			}
+		}
 	}
 	mousex = x;
 	mousey = y;
-	glutPostRedisplay();
 }
 
 void idle()
@@ -626,7 +738,7 @@ void updateView(int width, int height)
 		gluPerspective(45.0, (GLfloat)width / (GLfloat)height, 0.01f, 100.0f);
 	}
 	else
-		glOrtho(-3, 3, -3, 3, -100, 100);
+		glOrtho(nx, px, ny, py, nz, pz);
 
 	glMatrixMode(GL_MODELVIEW);
 }
@@ -642,6 +754,7 @@ void draw(GLenum mode)
 		glPushMatrix();
 	  glTranslatef(i->x, i->y, i->z);
 		glRotatef(i->angle, 0, 1, 0);
+		glRotatef(i->rotate, i->ax, i->ay, i->az);
 		if (ro)
 		{
 			if (i->chosen)
@@ -655,7 +768,8 @@ void draw(GLenum mode)
 		}
 		if (mode == GL_SELECT) glPushName(count + 1);
 		glScalef(i->sx, i->sy, i->sz);
-		if (i->havetext && withtext)
+		glPushMatrix();
+		if (withtext)
 		{
 			glCallList(i->lidwithtext);
 		}
@@ -672,6 +786,7 @@ void draw(GLenum mode)
 			glutWireCube(1.0);
 			glEnable(GL_LIGHTING);
 		}
+		glPopMatrix();
 		glPopMatrix();
 		count++;
 	}
@@ -698,19 +813,43 @@ void drawCross()
 void light()
 {
 	glEnable(GL_LIGHTING);
-	glLightfv(GL_LIGHT0, GL_POSITION, light0pos);
-	glLightfv(GL_LIGHT0, GL_AMBIENT, light0col);
-	glEnable(GL_LIGHT0);
-	if (showlightpos)
+	if (userlightcount == 0)
 	{
-		glPushMatrix();
-		glTranslatef(light0pos[0], light0pos[1], light0pos[2]);
-		glDisable(GL_TEXTURE_2D);
-		glDisable(GL_LIGHTING);
-		glColor3f(1.0, 1.0, 1.0);
-		glutSolidCube(0.01);
-		glEnable(GL_LIGHTING);
-		glPopMatrix();
+		glLightfv(GL_LIGHT0, GL_POSITION, light0pos);
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, light0col);
+		glLightfv(GL_LIGHT0, GL_AMBIENT, light0col);
+		glEnable(GL_LIGHT0);
+		if (showlightpos)
+		{
+			glPushMatrix();
+			glTranslatef(light0pos[0], light0pos[1], light0pos[2]);
+			glDisable(GL_TEXTURE_2D);
+			glDisable(GL_LIGHTING);
+			glColor3f(1.0, 1.0, 1.0);
+			glutSolidCube(0.01);
+			glEnable(GL_LIGHTING);
+			glPopMatrix();
+		}
+	}
+	else
+	{
+		for (int i = 0; i < userlightcount; i++)
+		{
+			glLightfv(GL_LIGHT0 + i, GL_POSITION, userlightlist[i]);
+			glLightfv(GL_LIGHT0 + i, userlighttype[i], light0col);
+			glEnable(GL_LIGHT0 + i);
+			if (showlightpos)
+			{
+				glPushMatrix();
+				glTranslatef(userlightlist[i][0], userlightlist[i][1], userlightlist[i][2]);
+				glDisable(GL_TEXTURE_2D);
+				glDisable(GL_LIGHTING);
+				glColor3f(1.0, 1.0, 1.0);
+				glutSolidCube(0.01);
+				glEnable(GL_LIGHTING);
+				glPopMatrix();
+			}
+		}
 	}
 }
 
@@ -724,6 +863,7 @@ GLuint processpick(GLint n, GLuint pb[])
 	GLint i, minn = 0;
 	GLuint name, *ptr;
 	GLfloat minz = 9999.0;
+	GLuint now;
 	ptr = pb;
 	for (i = 0; i < n; i++)
 	{
@@ -733,8 +873,12 @@ GLuint processpick(GLint n, GLuint pb[])
 		cout << ((GLfloat)*ptr / 0xFFFFFFFF) << " now min: " << minz << " @ " << minn << endl;
 		if (((GLfloat)*ptr / 0xFFFFFFFF) < minz)
 		{
-			minz = ((GLfloat)*ptr / 0xFFFFFFFF);
-			minn = *(ptr + 2);
+			now = *(ptr + 2) - 1;
+			if (objs[now].selectable)
+			{
+				minz = ((GLfloat)*ptr / 0xFFFFFFFF);
+				minn = now + 1;
+			}
 		}
 		ptr += 2;
 		for (int j = 0; j < name; j++)
@@ -749,28 +893,31 @@ GLuint processpick(GLint n, GLuint pb[])
 
 void genlist()
 {
-	for (ObjectList::iterator i = objs.begin();
-			 i != objs.end();
-			 i++)
-	{
-		i->lidwithouttext = glGenLists(1);
-		glNewList(i->lidwithouttext, GL_COMPILE);
-		glDisable(GL_TEXTURE_2D | GLM_MATERIAL);
-		glmDraw(&i->model, GLM_SMOOTH);
-		glEndList();
+	//glPushMatrix();
+	//glLoadIdentity();
+	//for (ObjectList::iterator i = objs.begin();
+	//		 i != objs.end();
+	//		 i++)
+	//{
+	//	i->lidwithouttext = glGenLists(1);
+	//	glNewList(i->lidwithouttext, GL_COMPILE);
+	//	glDisable(GL_TEXTURE_2D);
+	//	glmDraw(&i->model, GLM_SMOOTH | GLM_MATERIAL);
+	//	glEndList();
 
-		i->lidwithtext = glGenLists(1);
-		glNewList(i->lidwithtext, GL_COMPILE);
-		glmDraw(&i->model, &i->texture,
-						GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
-		glEndList();
-	}
+	//	i->lidwithtext = glGenLists(1);
+	//	glNewList(i->lidwithtext, GL_COMPILE);
+	//	glmDraw(&i->model,
+	//					GLM_SMOOTH | GLM_MATERIAL | GLM_TEXTURE);
+	//	glEndList();
+	//}
+	//glPopMatrix();
 }
 
 void getFPS()
 {
 	static int frame = 0, time, timebase = 0;
-	static char buffer[256];
+	static char buffer[256], buf2[256];
 
 	glDisable(GL_TEXTURE_2D);
 	glDisable(GL_LIGHTING);
@@ -780,13 +927,15 @@ void getFPS()
 	{
 		char choosing[255];
 		ZeroMemory(choosing, sizeof(choosing));
-		if(chosen!=-1) sprintf(choosing, "Choosing Item %d Scale:(%2.2lf, %2.2lf, %2.2lf)",
-													 chosen, objs[chosen].sx, objs[chosen].sy, objs[chosen].sz);
-		sprintf(buffer, "FPS:%4.2f Light Color in RGB (%4.2f, %4.2f, %4.2f) %s %s %s %s",
-						frame*1000.0 / (time - timebase), light0col[0], light0col[1], light0col[2],
-						(ro) ? "Rotating " : "Static ", (withtext)?"Texture Rendering":"Texture Ignored",
+		if(chosen!=-1) sprintf(choosing, "Item %d Scale:(%2.2lf, %2.2lf, %2.2lf) @ (%2.2lf, %2.2lf, %2.2lf)",
+													 chosen, objs[chosen].sx, objs[chosen].sy, objs[chosen].sz,
+													 objs[chosen].x, objs[chosen].y, objs[chosen].z);
+		sprintf(buffer, "Light Color (%4.2f, %4.2f, %4.2f) %s %s %s %s",
+						light0col[0], light0col[1], light0col[2],
+						(ro) ? "Rotating " : "Static ", (withtext)?"Texture":"No Texture",
 						(chosen == -1) ? "" : choosing,
 						(chosen == -1)? "" : objs[chosen].obj.c_str());
+		sprintf(buf2, "FPS:%4.2f Pos: (%5.5lf, %5.5lf, %5.5lf)", frame*1000.0 / (time - timebase), eye[0], eye[1], eye[2]);
 		timebase = time;
 		frame = 0;
 	}
@@ -804,6 +953,12 @@ void getFPS()
 	glRasterPos2f(10, 10);
 	glColor3f(1.0, 1.0, 1.0);
 	for (c = buffer; *c != '\0'; c++)
+	{
+		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
+	}
+
+	glRasterPos2f(10, 460);
+	for (c = buf2; *c != '\0'; c++)
 	{
 		glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
 	}
@@ -851,5 +1006,75 @@ void moveeye(Direction dir, double step)
 			eye[1] -= step * cos(viewangle[1]);
 			eye[2] -= step * sin(viewangle[1]) * sin(viewangle[0]);
 			break;
+	}
+	if (withscene)
+	{
+		if (eye[0] <= nx || eye[0] >= px ||
+				eye[1] <= ny || eye[1] >= py ||
+				eye[2] <= nz || eye[2] >= pz)
+		{
+			moveeye(dir, -step);
+		}
+	}
+}
+
+void passivemotion(int x, int y)
+{
+	if (!mode)
+	{
+		glutSetCursor(GLUT_CURSOR_RIGHT_ARROW);
+		return;
+	}
+	const double da = M_PI / 2;
+	glutSetCursor(GLUT_CURSOR_NONE);
+	INPUT input;
+	ZeroMemory(&input, sizeof(input));
+	input.type = INPUT_MOUSE;
+	input.mi.dx = 65535 / 2;
+	input.mi.dy = 65535 / 2;
+	input.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
+	SendInput(1, &input, sizeof(input));
+	double da0 = da * (1.0 * x / GetSystemMetrics(SM_CXSCREEN) - 0.5);
+	double da1 = da * (1.0 * y / GetSystemMetrics(SM_CYSCREEN) - 0.5);
+	viewangle[0] += da0;
+	if (viewangle[1] + da1 >= 0.0&&viewangle[1] + da1 <= M_PI)
+	{
+		viewangle[1] += da1;
+	}
+
+	while (viewangle[0] > M_PI)
+	{
+		viewangle[0] -= 2 * M_PI;
+	}
+	while (viewangle[0] < -M_PI)
+	{
+		viewangle[0] += 2 * M_PI;
+	}
+	mousex = x;
+	mousey = y;
+}
+
+double fx(double x)
+{
+	return (x - 1.0)*0.7 + 1.0;
+}
+
+void processColor(GLMmodel *object, double sx)
+{
+	if (!object->materials)
+	{
+		return;
+	}
+	for (int i = 0; i < object->nummaterials; i++)
+	{
+		object->materials[i].ambient[0] *= fx(sx);
+		object->materials[i].ambient[1] *= fx(sx);
+		object->materials[i].ambient[2] *= fx(sx);
+		object->materials[i].ambient[3] *= fx(sx);
+
+		object->materials[i].diffuse[0] *= fx(sx);
+		object->materials[i].diffuse[1] *= fx(sx);
+		object->materials[i].diffuse[2] *= fx(sx);
+		object->materials[i].diffuse[3] *= fx(sx);
 	}
 }

@@ -1,0 +1,4 @@
+scene
+obj scene/dinningRoom.obj
+scale 5.0 5.0 5.0
+sceneend

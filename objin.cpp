@@ -242,6 +242,12 @@ glmDirName(char* path)
 	return dir;
 }
 
+static int glmCheck2Power(int x)
+{
+	int i = 1;
+	while (i < x) i *= 2;
+	return i;
+}
 
 /* glmReadMTL: read a wavefront material library file
 *
@@ -256,8 +262,14 @@ glmReadMTL(GLMmodel* model, char* name)
 	char* filename;
 	char buf[128];
 	GLuint nummaterials, i;
+	Mat text;
+	int textsize = 0;
+	string textname;
+	int width, height;
 
 	dir = glmDirName(model->pathname);
+	textname = dir;
+	cout << textname << endl;
 	filename = (char*)malloc(sizeof(char)* (strlen(dir) + strlen(name) + 1));
 	strcpy(filename, dir);
 	strcat(filename, name);
@@ -317,7 +329,8 @@ glmReadMTL(GLMmodel* model, char* name)
 
 	/* now, read in the data */
 	nummaterials = 0;
-	while (fscanf(file, "%s", buf) != EOF) {
+	while (fscanf(file, "%s", buf) != EOF)
+	{
 		switch (buf[0]) {
 			case '#':               /* comment */
 				/* eat up rest of line */
@@ -360,6 +373,57 @@ glmReadMTL(GLMmodel* model, char* name)
 						fgets(buf, sizeof(buf), file);
 						break;
 				}
+				break;
+			case 'm':
+				fscanf(file, "%s", buf);
+				textname = string(buf);
+				cout << buf << " --- " << textname << endl;
+				text = imread(textname);
+				if (text.empty())
+				{
+					printf("Failed to load texture file %s\n", textname.c_str());
+					continue;
+				}
+				if (text.channels() != 3)
+				{
+					printf("OpenGL requires 24-bit textures\n");
+					continue;
+				}
+				cvtColor(text, text, CV_BGR2RGB);
+				width = glmCheck2Power(text.size().width);
+				height = glmCheck2Power(text.size().height);
+				resize(text, text, Size(width, height));
+				if (!model->materials[nummaterials].text.imageData)
+				{
+					delete[] model->materials[nummaterials].text.imageData;
+				}
+				textsize = text.size().width * text.size().height * 3;
+				model->materials[nummaterials].text.height = text.size().height;
+				model->materials[nummaterials].text.width = text.size().width;
+				model->materials[nummaterials].text.bpp = 24;
+				model->materials[nummaterials].text.imageData = new GLubyte[textsize];
+				for (int y = 0; y < text.size().height; y++)
+				{
+					for (int x = 0; x < text.size().width; x++)
+					{
+						GLubyte* data = model->materials[nummaterials].text.imageData;
+						int index = y*text.size().width + x;
+						data[index*3+0] = text.at<Vec3b>(y,x)[0];
+						data[index*3+1] = text.at<Vec3b>(y,x)[1];
+						data[index*3+2] = text.at<Vec3b>(y,x)[2];
+					}
+				}
+				glGenTextures(1, &model->materials[nummaterials].text.texID);                    // Generate OpenGL texture IDs  
+				glBindTexture(GL_TEXTURE_2D, model->materials[nummaterials].text.texID);         // Bind Our Texture  
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);   // Linear Filtered  
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);   // Linear Filtered  
+
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+										 model->materials[nummaterials].text.width,
+										 model->materials[nummaterials].text.height,
+										 0, GL_RGB, GL_UNSIGNED_BYTE,
+										 model->materials[nummaterials].text.imageData);
+
 				break;
 			default:
 				/* eat up rest of line */
@@ -837,9 +901,9 @@ glmUnitize(GLMmodel* model)
 	}
 
 	/* calculate model width, height, and depth */
-	w = glmAbs(maxx) + glmAbs(minx);
-	h = glmAbs(maxy) + glmAbs(miny);
-	d = glmAbs(maxz) + glmAbs(minz);
+	w = glmAbs(maxx - minx);
+	h = glmAbs(maxy - miny);
+	d = glmAbs(maxz - minz);
 
 	/* calculate center of the model */
 	cx = (maxx + minx) / 2.0;
@@ -847,7 +911,7 @@ glmUnitize(GLMmodel* model)
 	cz = (maxz + minz) / 2.0;
 
 	/* calculate unitizing scale factor */
-	scale = 2.0 / glmMax(glmMax(w, h), d);
+	scale = 1.0 / glmMax(glmMax(w, h), d);
 
 	/* translate around center then scale */
 	for (i = 1; i <= model->numvertices; i++) {
@@ -1703,6 +1767,13 @@ glmDraw(GLMmodel* model, GLuint mode)
 			glColor3fv(material->diffuse);
 		}
 
+		if (mode& GLM_TEXTURE)
+		{
+			glEnable(GL_TEXTURE_2D);
+			glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+			glBindTexture(GL_TEXTURE_2D, model->materials[group->material].text.texID);
+		}
+
 		glBegin(GL_TRIANGLES);
 		for (i = 0; i < group->numtriangles; i++) {
 			triangle = &T(group->triangles[i]);
@@ -2079,6 +2150,47 @@ bool LoadTGA(GLMtexture *texture, const char *filename)         // Loads A TGA F
   
     return true;                                            // Texture Building Went Ok, Return True  
 }  
+
+bool glmGetBox(GLMmodel *model,
+							 double &nx, double &px,
+							 double &ny, double &py,
+							 double &nz, double &pz)
+{
+	if (!model) return false;
+	GLuint i;
+	GLfloat maxx, minx, maxy, miny, maxz, minz;
+	GLfloat cx, cy, cz, w, h, d;
+	GLfloat scale;
+
+	assert(model);
+	assert(model->vertices);
+
+	/* get the max/mins */
+	maxx = minx = model->vertices[3 + 0];
+	maxy = miny = model->vertices[3 + 1];
+	maxz = minz = model->vertices[3 + 2];
+	for (i = 1; i <= model->numvertices; i++) {
+		if (maxx < model->vertices[3 * i + 0])
+			maxx = model->vertices[3 * i + 0];
+		if (minx > model->vertices[3 * i + 0])
+			minx = model->vertices[3 * i + 0];
+
+		if (maxy < model->vertices[3 * i + 1])
+			maxy = model->vertices[3 * i + 1];
+		if (miny > model->vertices[3 * i + 1])
+			miny = model->vertices[3 * i + 1];
+
+		if (maxz < model->vertices[3 * i + 2])
+			maxz = model->vertices[3 * i + 2];
+		if (minz > model->vertices[3 * i + 2])
+			minz = model->vertices[3 * i + 2];
+	}
+	nx = minx; px = maxx;
+	ny = miny; py = maxy;
+	nz = minz; pz = maxz;
+	return true;
+}
+
 
 #if 0
 /* normals */

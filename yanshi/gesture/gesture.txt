@@ -1,0 +1,5 @@
+template delete vk 66
+template deplicate vk 86
+template locate vk 88
+template rotate vk 32
+template mode vk 89

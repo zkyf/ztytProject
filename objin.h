@@ -18,10 +18,13 @@ coordinate generation (spheremap and planar projections) + more.
 #define _USE_MATH_DEFINES
 
 #include <iostream>
+#include <vector>
 #include <string>
 #include <math.h>
+#include <opencv2\opencv.hpp>
 
 using namespace std;
+using namespace cv;
 
 #if defined(__APPLE__) || defined(MACOSX)
 #include <GLUT/glut.h>
@@ -57,6 +60,7 @@ typedef struct _GLMmaterial
 	GLfloat specular[4];          /* specular component */
 	GLfloat emmissive[4];         /* emmissive component */
 	GLfloat shininess;            /* specular exponent */
+	GLMtexture text;
 } GLMmaterial;
 
 /* GLMtriangle: Structure that defines a triangle in a model.
@@ -301,9 +305,42 @@ glmWeld(GLMmodel* model, GLfloat epsilon);
 GLubyte*
 glmReadPPM(char* filename, int* width, int* height);
 
+/// The codes below are added and maintained by ljx
 
 /* LoadTGA: Read a TGA file and generate a texture.
 * The function returns the result of reading the file, false indicating
 * a failure.
 */
 bool LoadTGA(GLMtexture *texture, const char *fileName);
+
+/* glmGetBox: Get the size of an object
+* The function puts the results in the parameters, and returns false if
+* the object model is null.
+*/
+bool glmGetBox(GLMmodel *model, double &nx, double &px, double &ny, double &py, double &nz, double &pz);
+
+class ljxObject
+{
+	public:
+	string obj;
+	string tga;
+	GLMmodel model;
+	bool havetext;
+	bool chosen;
+	bool selectable;
+	double ax, ay, az;
+	double rotate;
+	double x, y, z;
+	double angle;
+	double sx;
+	double sy;
+	double sz;
+	double osx, osy, osz;
+	GLint lidwithtext;
+	GLint lidwithouttext;
+	GLMtexture texture;
+	ljxObject() : havetext(false), x(0), y(0), z(0), angle(0), chosen(false) {}
+	~ljxObject() {}
+};
+
+typedef vector<ljxObject> ObjectList;

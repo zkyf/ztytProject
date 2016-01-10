@@ -1,0 +1,10 @@
+# File created by ZBrush
+# ToolType: PolyMesh3D
+# www.zbrush.com
+newmtl defaultMat
+map_Kd bismark.jpg
+Ns 32
+Ka 0.35 0.35 0.35
+Ks 0.35 0.35 0.35
+Kd 0.35 0.35 0.35
+

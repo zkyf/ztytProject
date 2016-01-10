@@ -1,0 +1,239 @@
+# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
+# 创建的文件:05.01.2016 20:56:39
+
+newmtl wire_255255255
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 1.00 1.00 1.00
+	Kd 1.00 1.00 1.00
+	Ks 0.35 0.35 0.35
+
+newmtl wire_000000000
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.00 0.00 0.00
+	Kd 0.00 0.00 0.00
+	Ks 0.35 0.35 0.35
+
+newmtl wire_184155229
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.72 0.61 0.90
+	Kd 0.72 0.61 0.90
+	Ks 0.35 0.35 0.35
+
+newmtl wire_143224087
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.56 0.88 0.34
+	Kd 0.56 0.88 0.34
+	Ks 0.35 0.35 0.35
+
+newmtl wire_088199225
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.35 0.78 0.88
+	Kd 0.35 0.78 0.88
+	Ks 0.35 0.35 0.35
+
+newmtl wire_088088225
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.35 0.35 0.88
+	Kd 0.35 0.35 0.88
+	Ks 0.35 0.35 0.35
+
+newmtl wire_148177026
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.58 0.69 0.10
+	Kd 0.58 0.69 0.10
+	Ks 0.35 0.35 0.35
+
+newmtl 01___Default
+	Ns 10.00
+	Ni 1.50
+	d 1.00
+	Tr 0.00
+	Tf 1.00 1.00 1.00 
+	illum 2
+	Ka 0.05 0.05 0.05
+	Kd 0.05 0.05 0.05
+	Ks 0.00 0.00 0.00
+	Ke 0.00 0.00 0.00
+	map_d 铁杆栏061.bmp
+
+newmtl wire_087224198
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.34 0.88 0.78
+	Kd 0.34 0.88 0.78
+	Ks 0.35 0.35 0.35
+
+newmtl wire_153228214
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.60 0.89 0.84
+	Kd 0.60 0.89 0.84
+	Ks 0.35 0.35 0.35
+
+newmtl wire_154215229
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.60 0.84 0.90
+	Kd 0.60 0.84 0.90
+	Ks 0.35 0.35 0.35
+
+newmtl wire_184228153
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.72 0.89 0.60
+	Kd 0.72 0.89 0.60
+	Ks 0.35 0.35 0.35
+
+newmtl wire_140088225
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.55 0.35 0.88
+	Kd 0.55 0.35 0.88
+	Ks 0.35 0.35 0.35
+
+newmtl wire_224086086
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.88 0.34 0.34
+	Kd 0.88 0.34 0.34
+	Ks 0.35 0.35 0.35
+
+newmtl Material__3
+	Ns 5.00
+	Ni 1.50
+	d 0.95
+	Tr 0.05
+	Tf 0.95 0.95 0.95 
+	illum 2
+	Ka 0.99 0.85 0.41
+	Kd 1.00 1.00 1.00
+	Ks 0.15 0.15 0.14
+	Ke 0.75 0.75 0.75
+
+newmtl Material__2
+	Ns 15.00
+	Ni 1.50
+	d 1.00
+	Tr 0.00
+	Tf 1.00 1.00 1.00 
+	illum 2
+	Ka 0.07 0.18 0.06
+	Kd 0.55 0.55 0.55
+	Ks 0.18 0.18 0.18
+	Ke 0.00 0.00 0.00
+
+newmtl wire_006134006
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.02 0.53 0.02
+	Kd 0.02 0.53 0.02
+	Ks 0.35 0.35 0.35
+
+newmtl wire_153228153
+	Ns 32
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 2
+	Ka 0.60 0.89 0.60
+	Kd 0.60 0.89 0.60
+	Ks 0.35 0.35 0.35
+
+newmtl tv
+	Ns 17.00
+	Ni 1.50
+	d 1.00
+	Tr 0.00
+	Tf 1.00 1.00 1.00 
+	illum 2
+	Ka 0.00 0.00 0.00
+	Kd 0.06 0.06 0.06
+	Ks 0.80 0.80 0.80
+	Ke 0.06 0.06 0.06
+
+newmtl tvke
+	Ns 61.00
+	Ni 1.50
+	d 1.00
+	Tr 0.00
+	Tf 1.00 1.00 1.00 
+	illum 2
+	Ka 0.89 0.88 0.89
+	Kd 1.00 1.00 1.00
+	Ks 1.01 1.01 1.01
+	Ke 0.00 0.00 0.00
+
+newmtl yixian
+	Ns 25.00
+	Ni 1.50
+	d 1.00
+	Tr 0.00
+	Tf 1.00 1.00 1.00 
+	illum 2
+	Ka 0.00 0.00 0.00
+	Kd 0.00 0.00 0.00
+	Ks 0.31 0.31 0.31
+	Ke 0.00 0.00 0.00
+	map_bump -bm 0.30 Map__1_Cellular.bmp
+
+newmtl 音响
+	Ns 86.00
+	Ni 1.50
+	d 1.00
+	Tr 0.00
+	Tf 1.00 1.00 1.00 
+	illum 2
+	Ka 0.11 0.00 0.00
+	Kd 1.00 1.00 1.00
+	Ks 0.00 0.00 0.00
+	Ke 0.00 0.00 0.00
+	map_refl Map__378_Raytrace.bmp
