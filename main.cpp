@@ -95,6 +95,8 @@ int userlightcount = 0;
 
 int main(int argc, char *argv[])
 {
+	//system("gesture.exe");
+
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
 	glutInitWindowSize(640, 480);
@@ -375,10 +377,12 @@ void display()
 
 	glEnable(GL_DEPTH_TEST);
 
-	light();
+
 	draw(GL_RENDER);
+
 	drawCross();
 	getFPS();
+	light();
 	//drawscene();
 	glutSwapBuffers();
 	
@@ -1022,7 +1026,7 @@ void passivemotion(int x, int y)
 {
 	if (!mode)
 	{
-		glutSetCursor(GLUT_CURSOR_RIGHT_ARROW);
+		glutSetCursor(GLUT_CURSOR_CROSSHAIR);
 		return;
 	}
 	const double da = M_PI / 2;
